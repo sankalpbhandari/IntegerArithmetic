@@ -374,24 +374,474 @@ public class Num implements Comparable<Num> {
         return trimZeros(result);
     }
 
-    public Num product(Num num1, Num num2) {
-        return null;
+    /**
+     * Returns Num as a product of Num a and Num b.
+     *
+     * @param num1 first number
+     * @param num2 second number
+     * @return the product of numbers a and b
+     */
+    public static Num product(Num num1, Num num2) {
+        Num result = new Num();
+
+        // just getting the scalar product = |num1| * |num2|
+        result = result.scalarProduct(num1, num2);
+
+         /*
+         Updating the appropriate sign
+         - * - or + * +
+         - * + or - * +
+         */
+        result.isNegative = num1.isNegative != num2.isNegative;
+
+        return result;
     }
 
-    public Num divide(Num num1, Num num2) {
-        return null;
+    /**
+     * Returns scalar product of two numbers using Karatsuba Algorithm
+     *
+     * @param num1 the first number
+     * @param num2 the second number
+     * @return the product of num1 and num2
+     */
+    private Num scalarProduct(Num num1, Num num2) {
+        Num result = new Num();
+
+        // Largest length from two numbers
+        int maxLen = Math.max(num1.len, num2.len);
+
+        // When product num1 * num2 = 0 (ZERO), when either of two numbers is ZERO
+        if ((num1.len == 1 && num1.arr[0] == 0) || (num2.len == 1 && num2.arr[0] == 0)) {
+            result.len = 1;
+            result.arr = new long[result.len];
+            result.arr[0] = 0;
+            return result;
+        }
+
+        // Base Condition: When both numbers are of unit length (have a single digit)
+        if (num1.len == 1 && num2.len == 1) {
+            long prod = num1.arr[0] * num2.arr[0]; // still in decimal
+            long carry = prod / base;
+
+            // Only single digit is sufficient
+            if (carry == 0) {
+                result.len = 1;
+                result.arr = new long[result.len];
+                result.arr[0] = prod;
+            }
+            // When need two digits for the product
+            else {
+                result.len = 2;
+                result.arr = new long[result.len];
+                result.arr[0] = prod % base;
+                result.arr[1] = carry;
+            }
+        }
+
+        // Karatsuba Algorithm: Fast Integer Multiplication, RT = 0(n^log2 (3))
+        else {
+            // a1, b1 being GREATER sub-halves and a2, b2 being LOWER sub-halves
+            Num a1 = new Num();
+            Num a2 = new Num(); // a[a2:a1]
+            Num b1 = new Num();
+            Num b2 = new Num(); // b[b2:b1]
+
+            Num p;
+            int zeros = 0;
+
+            // Initializing appropriate a1[], a2[], b1[] and b2[]
+            int l2 = maxLen / 2;
+            int l1 = maxLen - l2; // NOTE: l1 = {l2+1 OR l2}
+
+            a2.len = b2.len = l2;
+            a1.len = b1.len = l1;
+
+            a1.arr = new long[l1];
+            a2.arr = new long[l2];
+            b1.arr = new long[l1];
+            b2.arr = new long[l2];
+
+            // When unEqual lengths
+            if (num1.len != num2.len) {
+                zeros = num1.len - num2.len;
+                // pad to a
+                if (zeros < 0) {
+                    // [It's out = p * b]
+                    p = padZeros(num1, Math.abs(zeros));
+                    fragment(p, a1, a2, num2, b1, b2); // p to [a1:a2] and b to [b1:b2]
+                }
+                // pad to b
+                else {
+                    // [It's out = a * p]
+                    p = padZeros(num2, zeros);
+                    fragment(num1, a1, a2, p, b1, b2); // a to [a1:a2] and p to [b1:b2]
+                }
+            }
+            // When Equal length
+            else {
+                fragment(num1, a1, a2, num2, b1, b2); // a to [a1:a2] and b to [b1:b2]
+            }
+            // As of Now, we have proper fragments - [a1:a2] and [b1:b2]
+            // ReC1: r1 = a1*b1
+            // ReC2: r2 = a2*b2
+            // ReC3: r3 = (a1+a2)*(b1+b2)
+
+            // Recursive Call 1:
+            Num r1 = new Num();
+            r1 = scalarProduct(a1, b1);
+
+            // Recursive Call 2:
+            Num r2 = new Num();
+            r2 = scalarProduct(a2, b2);
+
+            // Recursive Call 3:
+            Num r3 = new Num();
+            r3 = scalarProduct(unsignedAdd(a1, a2), unsignedAdd(b1, b2));
+
+            // CONQUER STEP:
+            // a * b = shiftZeros(r1,(n/1+n/2)) + r2 + shiftZeros(r3-r2-r1, n/2)
+            Num sum = unsignedAdd(r1, r2);
+            Num r4 = normalSubtract(r3, sum);
+
+            Num f1 = shiftZeros(r1, (maxLen / 2 + maxLen / 2));
+            Num f2 = shiftZeros(r4, maxLen / 2);
+
+            Num temp = unsignedAdd(f1, r2);
+            result = unsignedAdd(temp, f2);
+        }
+        return result;
+    }
+
+    /**
+     * NOTE:
+     * 1. Though Karatsuba Algorithm RT = 0(n^log 3) sounds great, but it's implementation is
+     * complicated, as you can see. The divide-and-conquer has a big recursive-overhead when
+     * the numbers are not of equal length, as we create additional terms and more crossover
+     * points, and only behaves better when numbers are of equal length.
+     *
+     * 2. The O(n^2) is simple and straight-forward. Karatsuba can perform faster than O(n^2) when
+     * the Num has 10000 digits (arr.length = 10000) or more, which is equivalent to having a number
+     * of decimal length = 10^(9 * 10000).
+     *
+     * 3. It is done for personal satisfaction. If you are aiming for efficiency, you may keep
+     * the implementation simple with O(n^2) algorithm.
+     *
+     * 4. Thus, a complicated 0(n^log 3) doesn't necessarily beat O(n^2) algorithm.
+     */
+
+    /**
+     * Karatsuba Algorithm Helper method:
+     * Fragments a to a1 and a2, and b to b1 and b2.
+     * Precondition: a and b are of same length n.
+     *
+     * @param num1      the first number
+     * @param upperNum1 the higher significant half (length = n - n/2)
+     * @param lowerNum1 the lower significant half (length = n/2)
+     * @param num2      the second number
+     * @param upperNum2 the higher significant half (length = n - n/2)
+     * @param lowerNum2 the lower significant half (length = n/2)
+     */
+    private void fragment(Num num1, Num upperNum1, Num lowerNum1, Num num2, Num upperNum2, Num lowerNum2) {
+        int numLen = num1.len;
+        int lowerLen = numLen / 2;
+        int upperLen = numLen - lowerLen;
+        // Consider a = 12345 = [5,4,3,2,1]. So, l2 = 2.
+        // a1 = 123 = [3,2,1] and a2 = 45 = [5,4]
+        System.arraycopy(num1.arr, 0, lowerNum1.arr, 0, lowerLen);
+        System.arraycopy(num2.arr, 0, lowerNum2.arr, 0, lowerLen);
+        System.arraycopy(num1.arr, lowerLen, upperNum1.arr, 0, upperLen);
+        System.arraycopy(num2.arr, lowerLen, upperNum2.arr, 0, upperLen);
+    }
+
+    /**
+     * Pad 'zeros' no of zeros in front of Num a, and
+     * updating the length return new paddedNum
+     *
+     * @param num   the Number required padding
+     * @param zeros is the no of zeros to be padded
+     * @return the padded number
+     */
+    private Num padZeros(Num num, int zeros) {
+        // No padding needed
+        if (zeros == 0) return num;
+
+        Num paddedNum = new Num();
+        int pLen = num.len + zeros; // NOTE: default number in java is ZERO* ;)
+        paddedNum.arr = new long[pLen];
+        int index = 0;
+
+        // Copying each element from front until there is one in a.arr
+        for (long element : num.arr) {
+            paddedNum.arr[index++] = element;
+        }
+        // Appropriate Sign and length of paddedNum
+        paddedNum.isNegative = num.isNegative;
+        paddedNum.len = pLen;
+
+        return paddedNum;
+    }
+
+    /**
+     * Shifts digits of Number a with d digits to give a Number
+     * equivalent to a with 'd' zeros behind.
+     *
+     * @param num The number to be shifted
+     * @param e   the number of zeros to be appended
+     * @return the output Num = a * 10^e
+     */
+    private Num shiftZeros(Num num, int e) {
+        Num result = new Num();
+
+        result.len = num.len + e; // NOTE: default number in java is ZERO* ;)
+        result.arr = new long[result.len];
+        result.isNegative = num.isNegative; // Appropriate sign
+
+        int numLen = num.len;
+
+        // Copying digits from a to out
+        // assigned to index: d to (a.len + d - 1)
+        System.arraycopy(num.arr, 0, result.arr, e, numLen);
+
+        return result;
+    }
+
+    /**
+     * POWER: using Divide-and-Conquer - Recursion
+     * Returns a^n
+     *
+     * @param num the number as Num
+     * @param e   the exponent in long
+     * @return num^e
+     * @throws ArithmeticException on undefined cases
+     */
+    public static Num power(Num num, long e) throws ArithmeticException {
+        Num result = new Num();
+        Num one = new Num(1);
+        Num zero = new Num(0);
+        Num minusOne = new Num(-1);
+
+        //When num is zero
+        if (num.compareTo(zero) == 0) {
+            if (e <= 0) {
+                throw new ArithmeticException("power(0," + e + ") is Undefined!");
+            } else {
+                return zero;
+            }
+        }
+        // When power is ZERO
+
+        if (e == 0) {
+            return one;
+        }
+        // When power is Negative
+        if (e < 0) {
+            if (num.isNegative && num.compareTo(one) == 0) {
+                if (e % 2 == 0) return one; // power(-1, negativeEven)
+                else return minusOne; // power(-1, negativeOdd)
+            }
+
+            if (num.compareTo(one) == 0) return one; // power(1,anyInteger)
+
+            if (num.compareTo(zero) > 0 && num.isNegative) {
+                if (e % 2 == 0) return zero; // power(negative, negativeEven)
+                else return minusOne; // power(negative, negativeOdd)
+                //Note: Assuming num is non negative
+            }
+
+            if (num.compareTo(zero) > 0) return zero; // power(positive,negative)
+
+        }
+
+        // When power is Positive
+        if (e > 0) {
+
+            if (num.compareTo(one) == 0 && num.isNegative) { // a = -1
+                if (e % 2 == 0) return one; // power(-1, positiveEven)
+                else return minusOne; // power(-1,positiveOdd)
+            }
+
+            if (num.compareTo(one) == 0) return one; // power(1,positive)
+
+            // When a is Negative
+            if (num.compareTo(zero) > 0 && num.isNegative) {
+                if (e % 2 == 1) result.isNegative = true; // power(negative, positiveOdd)
+                result = result.simplePower(num, e);
+                return result;
+            }
+
+            // When a is Positive
+            else return result.simplePower(num, e); // power(positive, positive)
+        }
+        return result;
+    }
+
+    /**
+     * Power Helper method: a != {0, 1, -1} and n is positive
+     *
+     * @return returns power(num,e) = num^e
+     */
+    private Num simplePower(Num num, long e) {
+
+        if (e == 0) return new Num(1); // a^0 = 1
+
+        if (e == 1) return num;
+
+        Num halfPower = simplePower(num, e / 2); // saving (4 - 1) recursive calls
+
+        // When n is Positive and EVEN
+        if (e % 2 == 0) {
+            return product(halfPower, halfPower);
+        } else {
+            // When n is Positive and ODD
+            Num temp = product(halfPower, halfPower);
+            return product(num, temp);
+        }
+    }
+
+    /**
+     * Division using Binary Search method
+     *
+     * @param num1 the dividend
+     * @param num2 the divisor
+     * @return the integer quotient
+     * @throws ArithmeticException when exception arise.
+     */
+    public static Num divide(Num num1, Num num2) throws ArithmeticException {
+
+        Num result = new Num();
+        Num zero = new Num(0);
+        Num one = new Num(1);
+        Num minusOne = new Num(-1);
+        Num two = new Num(2);
+
+        // Division by ZERO
+        if (num2.compareTo(zero) == 0)
+            return null;
+
+        // Numerator is ZERO
+        if (num1.compareTo(zero) == 0)
+            return zero;
+
+        // Denominator is one/ minusOne
+        if (num2.compareTo(one) == 0) {
+            // assigning correct sign to 'out'
+            result.isNegative = (num2.isNegative) != num1.isNegative;
+
+            result.len = num1.len;
+            result.arr = new long[result.len]; // Copying a to out
+            System.arraycopy(num1.arr, 0, result.arr, 0, num1.len);
+            return result;
+        }
+
+        // When division is by 2
+        if (num2.compareTo(two) == 0) {
+            result.isNegative = (num2.isNegative) != num1.isNegative;
+            result = num1.by2();
+            return result;
+        }
+
+        // |a| < |b|, causing division either ZERO or minusOne
+        if (num1.compareTo(num2) < 0) {
+            if (num1.isNegative == num2.isNegative) return zero;
+            else return minusOne;
+        }
+
+        // |a| == |b|
+        if (num1.compareTo(num2) == 0) {
+            if (num1.isNegative == num2.isNegative) return one;
+            else return minusOne;
+        }
+
+        // Binary Search begins
+        Num low = new Num(1);
+        Num high = new Num();
+
+        // Copying a to high
+        // high.isNegative = a.isNegative; // DONT NEED THIS*
+        high.len = num1.len;
+        high.arr = new long[high.len];
+
+        System.arraycopy(num1.arr, 0, high.arr, 0, num1.len);
+
+        // mid = (low + high) / 2.
+        Num mid = new Num();
+
+        while (low.compareTo(high) < 0) {
+
+            Num sum = result.unsignedAdd(low, high);
+            mid = sum.by2();
+
+            if (mid.compareTo(low) == 0)
+                break; // When mid = low
+
+            Num prod = result.scalarProduct(mid, num2);
+
+            if (prod.compareTo(num1) == 0)
+                break; // When mid*b = a
+
+            else if (prod.compareTo(num1) > 0)
+                high = mid;
+            else
+                low = mid;
+        }
+
+        // When a, b has different signs
+        if (num1.isNegative != num2.isNegative)
+            mid.isNegative = true;
+
+        return mid;
     }
 
     public Num mod(Num num1, Num num2) {
         return null;
     }
 
-    public static Num power(Num num1, long n) {
+    public Num sqrt(Num a) {
         return null;
     }
 
-    public Num sqrt(Num a) {
-        return null;
+    /**
+     * Divide by 2, for using in binary search
+     *
+     * @return a new Num half of calling Num
+     */
+    public Num by2() {
+        Num half = new Num();
+        long carry = 0;
+        Num two = new Num(2);
+        Num zero = new Num(0);
+
+        if (this.compareTo(two) < 0)
+            return zero;
+
+        // When the most significant digit = 1, the half.len = this.len - 1
+        if (this.arr[len - 1] == 1) {
+            half.len = this.len - 1;
+            carry = 1; // Planning to start from index = half.len - 1 = this.len - 2, WITH a carry
+        }
+        // When most significant digit > 1
+        else half.len = this.len;
+
+        half.isNegative = this.isNegative;
+        half.arr = new long[half.len];
+
+        // Assigning correct digits of half.arr from index = most to least significant
+        int index = half.len - 1;
+
+        while (index >= 0) {
+            long sum = 0; // to store the proper digit to be halved.
+
+            // When there exits a carry
+            if (carry == 1) {
+                sum = this.arr[index] + base;
+            } else {
+                sum = this.arr[index];
+            }
+
+            half.arr[index--] = sum / 2; // the proper halved digit
+            carry = (sum % 2 == 1) ? 1 : 0;
+        }
+        return half;
     }
 
     public Num evaluatePostfix(String[] arr) {
@@ -452,7 +902,7 @@ public class Num implements Comparable<Num> {
     public static void main(String[] args) {
         Num x = new Num(999);
         Num y = new Num("8");
-        Num z = Num.subtract(x, y);
+        Num z = Num.divide(x, y);
         if (z != null) z.printList();
         Num a = Num.power(x, 8);
         System.out.println(a);
