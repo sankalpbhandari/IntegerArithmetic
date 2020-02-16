@@ -274,6 +274,37 @@ public class Num implements Comparable<Num> {
     }
 
     /**
+     * Subtraction of Num b from Num a.
+     * NOTE: Left associativity is maintained.
+     *
+     * @param num1 the input number
+     * @param num2 the input number
+     * @return the difference
+     */
+    public static Num subtract(Num num1, Num num2) {
+        Num result = new Num();
+
+        // When num1 - num2 = (-) - (+) or num1 - num2 = (+) - (-)
+        if (num1.isNegative != num2.isNegative) {
+            result = result.unsignedAdd(num1, num2);
+            result.isNegative = num1.isNegative;
+        }
+        // When num1 - num2 needs to find the difference |num1|-|num2|
+        else {
+            // When |num1| < |num2|
+            if (num1.compareTo(num2) < 0) {
+                result = result.normalSubtract(num2, num1); // find the difference
+                result.isNegative = !num2.isNegative; // give bigger number sign* -(-num2) is +ve
+            } else {
+                result = result.normalSubtract(num1, num2); // find the difference
+                result.isNegative = num1.isNegative; // give bigger number sign
+            }
+        }
+        return result;
+    }
+
+
+    /**
      * Difference of two numbers ignoring the sign.
      * Precondition: x >= y
      *
@@ -341,10 +372,6 @@ public class Num implements Comparable<Num> {
             }
         }
         return trimZeros(result);
-    }
-
-    public Num sub(Num num1, Num num2) {
-        return null;
     }
 
     public Num product(Num num1, Num num2) {
@@ -425,7 +452,7 @@ public class Num implements Comparable<Num> {
     public static void main(String[] args) {
         Num x = new Num(999);
         Num y = new Num("8");
-        Num z = Num.add(x, y);
+        Num z = Num.subtract(x, y);
         if (z != null) z.printList();
         Num a = Num.power(x, 8);
         System.out.println(a);
