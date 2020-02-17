@@ -792,13 +792,91 @@ public class Num implements Comparable<Num> {
         return mid;
     }
 
-    public Num mod(Num num1, Num num2) {
-        return null;
+    /**
+     * Returns modulo: num1 mod b
+     *
+     * @param num1 the first operand
+     * @param b    the second operand
+     * @return the modulo
+     */
+
+    public static Num mod(Num num1, Num b) throws ArithmeticException {
+        Num zero = new Num(0);
+        Num one = new Num(1);
+
+        // When Undefined modulo operation
+        if (num1.isNegative || b.isNegative || b.compareTo(zero) == 0)
+            return null;
+
+        // NOTE: b wouldn't be minusOne
+        if (b.compareTo(one) == 0)
+            return num1;
+
+        Num quotient = divide(num1, b);
+        Num product = product(quotient, b);
+
+        Num result = subtract(num1, product);
+
+        return result;
     }
 
-    public Num sqrt(Num a) {
-        return null;
+    /**
+     * Returns square root of num Num using Binary Search
+     *
+     * @param num the number
+     * @return the square root
+     * @throws ArithmeticException for undefined numbers
+     */
+    public static Num squareRoot(Num num) throws ArithmeticException {
+
+        Num zero = new Num(0);
+        Num one = new Num(1);
+
+        // When num is NEGATIVE
+        if (num.isNegative)
+            return null;
+
+        if (num.compareTo(zero) == 0)
+            return zero; // When num is ZERO
+
+        if (num.compareTo(one) == 0)
+            return one; // When num is ONE
+
+        Num low = zero;
+        Num high = new Num();
+
+        // Copying num to high
+        high.isNegative = num.isNegative;
+        high.len = num.len;
+        high.arr = new long[high.len];
+
+        System.arraycopy(num.arr, 0, high.arr, 0, num.len);
+
+        Num mid = new Num();
+        Num sum = new Num(0);
+
+        // Quite similar to divide
+        while (low.compareTo(high) < 0) {
+
+            sum = add(low, high);
+            mid = sum.by2();
+
+            if (low.compareTo(mid) == 0)
+                return mid;
+
+            Num prod = product(mid, mid);
+
+            if (prod.compareTo(num) == 0)
+                return mid;
+
+            else if (prod.compareTo(num) < 0)
+                low = mid;
+            else
+                high = mid;
+        }
+        return mid;
     }
+
 
     /**
      * Divide by 2, for using in binary search
@@ -902,10 +980,10 @@ public class Num implements Comparable<Num> {
     public static void main(String[] args) {
         Num x = new Num(999);
         Num y = new Num("8");
-        Num z = Num.divide(x, y);
+        Num z = Num.mod(x, y);
         if (z != null) z.printList();
-        Num a = Num.power(x, 8);
+        Num a = Num.squareRoot(x);
         System.out.println(a);
-        if (z != null) z.printList();
+        if (a != null) a.printList();
     }
 }
