@@ -7,13 +7,13 @@ package ssb170006;
  * @author Divyesh Patel (dgp170030)
  * @author Sankalp Bhandari (ssb170006)
  * @author Shraddha Bang (sxb180041)
- * <p>
- * Date: Sunday, September 23, 2018
+ * Date: Sunday, Febuary 23, 2020
  */
 
 import java.util.*;
 
 public class Num implements Comparable<Num> {
+
     // defaultBase: Base in which input and output numbers are evaluated
     static long defaultBase = 10;
     // base: Base responsible for fast calculations. Larger the base, faster the computations.
@@ -146,11 +146,6 @@ public class Num implements Comparable<Num> {
 
     private Num() {
 
-    }
-
-    // Returns base
-    public long base() {
-        return base;
     }
 
     /**
@@ -304,7 +299,6 @@ public class Num implements Comparable<Num> {
         }
         return result;
     }
-
 
     /**
      * Difference of two numbers ignoring the sign.
@@ -879,6 +873,164 @@ public class Num implements Comparable<Num> {
         return mid;
     }
 
+    /**
+     * Compare "this" to "other": return +1 if this is greater, 0 if equal, -1 otherwise.
+     * NOTE: Compares ONLY Magnitude of each number, NOT according to the sign.
+     *
+     * @param other the other number
+     */
+    public int compareTo(Num other) {
+
+        // When lengths are unequal
+        if (this.len != other.len) {
+            return (this.len > other.len) ? 1 : -1;
+        }
+        // When same length, look for greatest highest significant digit
+        else {
+            int index = this.len - 1;
+            while (index >= 0) {
+                // Inequality check: this < other
+                if (this.arr[index] != other.arr[index])
+                    return (this.arr[index] < other.arr[index]) ? -1 : 1;
+                index--;
+            }
+        }
+        // When Equal Numbers
+        return 0;
+    }
+
+    /**
+     * Output using the format "base: elements of list"
+     * For example, if base = 100, and the number stored corresponds to -10965,
+     * then the output is "100: - [65, 9, 1]"
+     */
+    public void printList() {
+        System.out.print(base() + ": ");
+
+        if (this.isNegative) System.out.print("- ");
+        System.out.print("[");
+        int i = 0;
+        while (i < this.len) {
+            if (i == this.len - 1) System.out.print(this.arr[i]);
+            else System.out.print(this.arr[i] + ", ");
+            i++;
+        }
+        System.out.print("]");
+        System.out.println();
+    }
+
+    /**
+     * Returns this number in DECIMAL
+     */
+    public String toString() {
+
+        // To get the number in base()
+        this.arr = convertToOriginalBase();
+        this.len = this.arr.length;
+
+        StringBuilder sb = new StringBuilder();
+        long temp, countDigits = 0, maxNo = base - 1, append0 = 0;
+
+        if (isNegative) sb.append("-");
+
+        // Append zeros if required to each 'digit'
+        for (int i = len - 1; i >= 0; i--) {
+            countDigits = 0;
+            if (i == len - 1) {
+                sb.append(arr[i]);
+                continue;
+            }
+
+            // Counting no of digits(base=10) in each digit(our base)
+            temp = arr[i];
+            while (temp < maxNo && temp > 0) {
+                temp = temp / 10;
+                countDigits++;
+            }
+            append0 = digits - countDigits;
+
+            // Actually appending the zeros
+            while (append0 > 0) {
+                sb.append("0");
+                append0--;
+            }
+            sb.append(arr[i]);
+        }
+
+        return sb.toString();
+    }
+
+    // Returns base
+    public long base() {
+        return base;
+    }
+
+    // Return number equal to "this" number, in base = newBase
+    public Num convertBase(int newBase) {
+        Num nBase = new Num(newBase);
+        Num zero = new Num(0);
+
+        Num result = new Num();
+        result.isNegative = this.isNegative;
+
+        // len1 = this.len = log_thisBase (N) = log(N)/log(thisBase)
+        // len2 = log_newBase (N) = log(N)/log(newBase)
+        // So, len2 = len1 * (log_newBase (thisBase)) = len1 * log(thisBase)/ log(newBase)
+
+        double lgBase1 = Math.log10(this.base);
+        double lgBase2 = Math.log10(newBase);
+
+        double l2 = (lgBase1 / lgBase2) * this.len;
+        result.len = (int) l2 + 1; // Safe side + 1, will trimZeros later
+
+        result.arr = new long[result.len];
+
+        // Copying this number to numCopy
+        Num numCopy = new Num();
+        numCopy.len = this.len;
+        numCopy.arr = new long[this.len];
+        System.arraycopy(this.arr, 0, numCopy.arr, 0, this.len);
+
+        int index = 0;
+
+        // Computing each digit using mod-divide methods
+        while (numCopy.compareTo(zero) > 0) {
+            Num remainder = mod(numCopy, nBase);
+            String remStr = remainder.toString();
+            result.arr[index++] = Long.parseLong(remStr);
+            Num quotient = divide(numCopy, nBase);
+            numCopy = quotient;
+        }
+
+        result = zero.trimZeros(result);
+        result.base = newBase;
+        return result;
+    }
+
+    /**
+     * Convert the base of Num to Num.base (if it was static)
+     *
+     * @return the newly converted Num
+     */
+    private long[] convertToOriginalBase() {
+
+        Num num = new Num(this.arr[len - 1]);
+        Num base = new Num(this.base());
+
+        // When the base is same
+        if (num.base == this.base)
+            return this.arr;
+
+        // using Horner's method to
+        // convert from this.base() to our original base()
+        for (int i = len - 2; i >= 0; i--) {
+            num = product(num, base);
+            num = add(num, new Num(arr[i]));
+        }
+
+        this.base = num.base;
+        return num.arr;
+    }
 
     /**
      * Divide by 2, for using in binary search
@@ -1091,118 +1243,6 @@ public class Num implements Comparable<Num> {
         }
 
         return result;
-    }
-
-    /**
-     * Compare "this" to "other": return +1 if this is greater, 0 if equal, -1 otherwise.
-     * NOTE: Compares ONLY Magnitude of each number, NOT according to the sign.
-     *
-     * @param other the other number
-     */
-    public int compareTo(Num other) {
-
-        // When lengths are unequal
-        if (this.len != other.len) {
-            return (this.len > other.len) ? 1 : -1;
-        }
-        // When same length, look for greatest highest significant digit
-        else {
-            int index = this.len - 1;
-            while (index >= 0) {
-                // Inequality check: this < other
-                if (this.arr[index] != other.arr[index])
-                    return (this.arr[index] < other.arr[index]) ? -1 : 1;
-                index--;
-            }
-        }
-        // When Equal Numbers
-        return 0;
-    }
-
-    /**
-     * Output using the format "base: elements of list"
-     * For example, if base = 100, and the number stored corresponds to -10965,
-     * then the output is "100: - [65, 9, 1]"
-     */
-    public void printList() {
-        System.out.print(base() + ": ");
-
-        if (this.isNegative) System.out.print("- ");
-        System.out.print("[");
-        int i = 0;
-        while (i < this.len) {
-            if (i == this.len - 1) System.out.print(this.arr[i]);
-            else System.out.print(this.arr[i] + ", ");
-            i++;
-        }
-        System.out.print("]");
-        System.out.println();
-    }
-
-    /**
-     * Returns this number in DECIMAL
-     */
-    public String toString() {
-
-        // To get the number in base()
-        this.arr = convertToOriginalBase();
-        this.len = this.arr.length;
-
-        StringBuilder sb = new StringBuilder();
-        long temp, countDigits = 0, maxNo = base - 1, append0 = 0;
-
-        if (isNegative) sb.append("-");
-
-        // Append zeros if required to each 'digit'
-        for (int i = len - 1; i >= 0; i--) {
-            countDigits = 0;
-            if (i == len - 1) {
-                sb.append(arr[i]);
-                continue;
-            }
-
-            // Counting no of digits(base=10) in each digit(our base)
-            temp = arr[i];
-            while (temp < maxNo && temp > 0) {
-                temp = temp / 10;
-                countDigits++;
-            }
-            append0 = digits - countDigits;
-
-            // Actually appending the zeros
-            while (append0 > 0) {
-                sb.append("0");
-                append0--;
-            }
-            sb.append(arr[i]);
-        }
-
-        return sb.toString();
-    }
-
-    /**
-     * Convert the base of Num to Num.base (if it was static)
-     *
-     * @return the newly converted Num
-     */
-    private long[] convertToOriginalBase() {
-
-        Num num = new Num(this.arr[len - 1]);
-        Num base = new Num(this.base());
-
-        // When the base is same
-        if (num.base == this.base)
-            return this.arr;
-
-        // using Horner's method to
-        // convert from this.base() to our original base()
-        for (int i = len - 2; i >= 0; i--) {
-            num = product(num, base);
-            num = add(num, new Num(arr[i]));
-        }
-
-        this.base = num.base;
-        return num.arr;
     }
 
     public static void main(String[] args) {
