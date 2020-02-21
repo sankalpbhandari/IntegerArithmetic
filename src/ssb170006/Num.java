@@ -11,6 +11,8 @@ package ssb170006;
  * Date: Sunday, September 23, 2018
  */
 
+import java.util.*;
+
 public class Num implements Comparable<Num> {
     // defaultBase: Base in which input and output numbers are evaluated
     static long defaultBase = 10;
@@ -922,12 +924,173 @@ public class Num implements Comparable<Num> {
         return half;
     }
 
-    public Num evaluatePostfix(String[] arr) {
-        return null;
+    // Evaluate an expression in postfix and return resulting number
+    // Each string is one of: "*", "+", "-", "/", "%", "^", "0", or
+    // a number: [1-9][0-9]*. There is no unary minus operator.
+    public static Num evaluatePostfix(String[] expr) {
+
+        Num result = new Num();
+        if (expr.length == 0) return null;
+
+        Stack<String> operand = new Stack<>();
+        Set<String> uniqueOperators = new HashSet<>();
+        String num1, num2;
+        int expLenIdx = 0;
+
+        uniqueOperators.add("+");
+        uniqueOperators.add("-");
+        uniqueOperators.add("*");
+        uniqueOperators.add("/");
+        uniqueOperators.add("^");
+        uniqueOperators.add("%");
+
+        while (expLenIdx < expr.length) {
+            if (!uniqueOperators.contains(expr[expLenIdx]))
+                operand.push(expr[expLenIdx]);
+
+            else {
+                num1 = operand.pop();
+                num2 = operand.pop();
+                operand.push(result.evaluate(num1, num2, expr[expLenIdx]).toString());
+            }
+            expLenIdx++;
+        }
+        //System.out.println(operand.peek());
+        result = new Num(operand.pop());
+        return result;
     }
 
-    public Num evaluateExp(String[] arr) {
-        return null;
+    // Evaluate an expression in infix and return resulting number
+    // Each string is one of: "*", "+", "-", "/", "%", "^", "(", ")", "0", or
+    // a number: [1-9][0-9]*. There is no unary minus operator.
+    public static Num evaluateExp(String expression) {
+
+        Num result = new Num();
+
+        Stack<String> operator = new Stack<>(); // Stack for operators
+        Stack<String> operand = new Stack<>(); // Stack for operands
+
+        String operand1 = null; // first Number
+        String operand2 = null; // second Number
+        String operation = null; // operator
+
+        // Set<String > uniqueOperators=new HashSet<String>();
+        // HashMap to store <operator, priority> pairs
+        Map<String, Integer> uniqueOperators = new HashMap<>();
+        uniqueOperators.put("+", 3);
+        uniqueOperators.put("-", 3);
+        uniqueOperators.put("*", 2);
+        uniqueOperators.put("/", 2);
+        uniqueOperators.put("^", 1);
+        uniqueOperators.put("%", 2);
+        uniqueOperators.put("(", 4);
+        uniqueOperators.put(")", 4);
+
+        expression = expression.replaceAll(" ", "");
+
+        ArrayList<String> expr = new ArrayList<>();
+        int i = 0;
+        char[] exp = expression.toCharArray();
+        while (i < exp.length) {
+            if (uniqueOperators.containsKey(String.valueOf(exp[i])) || exp[i] == '(' || exp[i] == ')') {
+                expr.add(String.valueOf(exp[i++]));
+            } else {
+                StringBuilder tempSB = new StringBuilder();
+                while (i < exp.length && !(uniqueOperators.containsKey(String.valueOf(exp[i]))
+                        || exp[i] == '(' || exp[i] == ')')) {
+                    tempSB.append(exp[i++]);
+                }
+                expr.add(tempSB.toString());
+            }
+        }
+        i = 0;
+        // Iterating through given input: String[] as expression
+        while (i < expr.size()) {
+            // When we get a number -> pushing it to the operand stack
+            if (!uniqueOperators.containsKey(expr.get(i)))
+                operand.push(expr.get(i));
+
+                // When it's a closing parenthesis pop(or evaluate) until we reach opening parenthesis
+            else if (expr.get(i).equals(")")) {
+
+                while (!operator.isEmpty() && !operator.peek().equals("(")) {
+                    operand1 = operand.pop();
+                    operand2 = operand.pop();
+                    operation = operator.pop();
+                    operand.push(result.evaluate(operand1, operand2, operation).toString());
+                }
+                operator.pop();
+            } else {
+                // When operator stack is empty, i.e nothing remains to evaluate -> push(operator)
+                if (operator.isEmpty() ||
+                        expr.get(i).equals("(") ||
+                        uniqueOperators.get(expr.get(i)) < uniqueOperators.get(operator.peek()))  // When the priority  of the new operator is more than operator.peek -> push(operator)
+                    operator.push(expr.get(i));
+
+                    // else pop until we get lesser
+                else {
+                    while (!operator.isEmpty() &&
+                            uniqueOperators.get(operator.peek()) <= uniqueOperators.get(expr.get(i))) {
+                        operand1 = operand.pop();
+                        operand2 = operand.pop();
+                        operation = operator.pop();
+                        operand.push(result.evaluate(operand1, operand2, operation).toString());
+                    }
+                    operator.push(expr.get(i));
+                }
+            }
+            i++;
+        }
+        while (!operator.isEmpty()) {
+            operand1 = operand.pop();
+            operand2 = operand.pop();
+            operation = operator.pop();
+            operand.push(result.evaluate(operand1, operand2, operation).toString());
+        }
+
+        result = new Num(operand.pop());
+        return result;
+    }
+
+    /*
+     * Perform the required Arithmetic operations operand1-operator-operand2
+     * And operator must be binary, like +,-,*,/,%,^
+     */
+    private Num evaluate(String operand1, String operand2, String operator) {
+
+        Num result = null, num1, num2 = null;
+        long num3 = 0;
+
+        if (operator.equals("^")) {
+            num1 = new Num(operand2);
+            num3 = Long.parseLong(operand1);
+        } else {
+            num1 = new Num(operand1);
+            num2 = new Num(operand2);
+        }
+
+        switch (operator) {
+            case "+":
+                result = add(num2, num1);
+                break;
+            case "-":
+                result = subtract(num2, num1);
+                break;
+            case "*":
+                result = product(num2, num1);
+                break;
+            case "/":
+                result = divide(num2, num1);
+                break;
+            case "^":
+                result = power(num1, num3);
+                break;
+            case "%":
+                result = mod(num2, num1);
+                break;
+        }
+
+        return result;
     }
 
     /**
@@ -976,14 +1139,81 @@ public class Num implements Comparable<Num> {
         System.out.println();
     }
 
+    /**
+     * Returns this number in DECIMAL
+     */
+    public String toString() {
+
+        // To get the number in base()
+        this.arr = convertToOriginalBase();
+        this.len = this.arr.length;
+
+        StringBuilder sb = new StringBuilder();
+        long temp, countDigits = 0, maxNo = base - 1, append0 = 0;
+
+        if (isNegative) sb.append("-");
+
+        // Append zeros if required to each 'digit'
+        for (int i = len - 1; i >= 0; i--) {
+            countDigits = 0;
+            if (i == len - 1) {
+                sb.append(arr[i]);
+                continue;
+            }
+
+            // Counting no of digits(base=10) in each digit(our base)
+            temp = arr[i];
+            while (temp < maxNo && temp > 0) {
+                temp = temp / 10;
+                countDigits++;
+            }
+            append0 = digits - countDigits;
+
+            // Actually appending the zeros
+            while (append0 > 0) {
+                sb.append("0");
+                append0--;
+            }
+            sb.append(arr[i]);
+        }
+
+        return sb.toString();
+    }
+
+    /**
+     * Convert the base of Num to Num.base (if it was static)
+     *
+     * @return the newly converted Num
+     */
+    private long[] convertToOriginalBase() {
+
+        Num num = new Num(this.arr[len - 1]);
+        Num base = new Num(this.base());
+
+        // When the base is same
+        if (num.base == this.base)
+            return this.arr;
+
+        // using Horner's method to
+        // convert from this.base() to our original base()
+        for (int i = len - 2; i >= 0; i--) {
+            num = product(num, base);
+            num = add(num, new Num(arr[i]));
+        }
+
+        this.base = num.base;
+        return num.arr;
+    }
 
     public static void main(String[] args) {
         Num x = new Num(999);
         Num y = new Num("8");
-        Num z = Num.mod(x, y);
+        String[] strPost = {"63", "53", "-", "10", "+"};
+        Num z = Num.evaluatePostfix(strPost);
         if (z != null) z.printList();
-        Num a = Num.squareRoot(x);
-        System.out.println(a);
+//        String[] strInfix = {"(", "(", "63", "-", "53", ")", "+", "10", ")"};
+        String strInfix = "((63-53)+10)";
+        Num a = Num.evaluateExp(strInfix);
         if (a != null) a.printList();
     }
 }
